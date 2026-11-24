@@ -224,7 +224,7 @@
   </header>
 
   <main id="main">
-    <div class="plate-label"><span>车牌号码</span><b id="locLabel">定位带入</b></div>
+    <div class="plate-label"><span>车牌号码</span><b id="locLabel">待选择</b></div>
     <div class="plate" id="plate" role="group" aria-label="车牌号输入"></div>
 
     <div class="meta-row">
@@ -361,7 +361,7 @@
     var r = resolve(), need = r.need;
     var rest = Math.max(0, need - 1 - state.body.length);
 
-    if(!state.province) return {ok:false, code:'noProvince', msg:'先点最左边一格选择省份简称'};
+    if(!state.province) return {ok:false, code:'noProvince', msg:'请先选择省份简称'};
     if(state.body.length === 0) return {ok:false, code:'empty', msg:'省份已带入 ' + state.province + '，接着输入发牌机关字母'};
     if(!isLetter(state.body[0])) return {ok:false, code:'second', msg:'第 2 位是发牌机关字母（A–Z，不含 I、O）'};
     if(state.body.length < need - 1) return {ok:false, code:'short', msg:'还差 ' + rest + ' 位'};
@@ -587,7 +587,7 @@
     scrimEl.classList.remove('open');
     sheetEl.classList.remove('open');
     sheetEl.setAttribute('aria-hidden','true');
-    state.focus = Math.min(1 + state.body.length, maxLen() - 1);
+    state.focus = state.province ? Math.min(1 + state.body.length, maxLen() - 1) : 0;
     render();
   }
 
@@ -831,13 +831,16 @@
     if(savedRecent){
       try{ state.recent = JSON.parse(savedRecent) || []; }catch(e){ state.recent = []; }
     }
-    state.province = state.recent[0] || '沪';
-    locLabel.textContent = state.recent[0] ? '沿用上次' : '定位带入';
-    state.focus = 1;
+    state.province = '';
+    state.focus = 0;
+    locLabel.textContent = '待选择';
     render();
     hintEl.className = 'hint';
     hintEl.innerHTML = '<span class="dot" style="margin-top:5px;flex:0 0 auto"></span><span>' +
-      '已填好 <span class="hi">' + state.province + '</span>，直接输入字母和数字就行；要换省份点最左边一格。</span>';
+      '先选省份简称，选完自动回到字母输入。</span>';
+    setTimeout(function(){
+      if(!state.province && sheetEl.classList.contains('open') === false) openSheet();
+    }, 240);
   }
 
   boot();
