@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>车牌号输入 · 省份快速选择</title>
+<style>
+  :root{
+    --blue:#0071e3; --blue-8:rgba(0,113,227,.08); --blue-12:rgba(0,113,227,.12);
+    --card:#f5f5f7; --line:rgba(0,0,0,.08); --text:#1d1d1f; --muted:#86868b;
+    --faint:#a1a1a6; --green:#1d9e75; --red:#e24b4a;
+    --r-md:10px; --r-lg:14px; --r-xl:20px;
+    --ease:cubic-bezier(.16,1,.3,1);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;
+    background:#e8e8ed;display:flex;justify-content:center;color:var(--text);
+    -webkit-font-smoothing:antialiased;
+  }
+  .phone{
+    position:relative;width:100%;max-width:430px;height:100dvh;max-height:932px;
+    background:#fff;display:flex;flex-direction:column;overflow:hidden;
+    box-shadow:0 0 0 1px rgba(0,0,0,.06),0 24px 60px -20px rgba(0,0,0,.25);
+  }
+  @media(min-width:480px){ .phone{height:900px;border-radius:28px;margin:auto} }
+
+  header{
+    flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
+    padding:14px 20px 8px;
+  }
+  header h1{font-size:17px;font-weight:500;margin:0;letter-spacing:-.01em}
+  .help-btn{
+    border:0;background:var(--card);color:var(--muted);font-size:13px;
+    padding:6px 12px;border-radius:20px;cursor:pointer;font-family:inherit;
+  }
+  .help-btn:hover{color:var(--text)}
+
+  main{flex:1 1 auto;overflow-y:auto;padding:4px 20px 16px}
+
+  .plate-label{
+    display:flex;align-items:center;justify-content:space-between;
+    font-size:12px;color:var(--muted);margin:6px 0 10px;
+  }
+  .plate-label b{font-weight:400;color:var(--faint)}
+  .plate{
+    display:flex;gap:6px;justify-content:flex-start;padding:12px 10px;
+    background:var(--card);border-radius:var(--r-lg);
+  }
+  .cell{
+    flex:1 1 0;min-width:0;height:54px;border-radius:var(--r-md);
+    background:#fff;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06);
+    display:flex;align-items:center;justify-content:center;
+    font-size:22px;font-weight:500;letter-spacing:.02em;cursor:pointer;
+    transition:box-shadow .16s var(--ease),background .16s var(--ease),transform .16s var(--ease);
+    user-select:none;
+  }
+  .cell.prov{color:var(--blue);font-size:20px}
+  .cell.empty::after{content:"";width:14px;height:2px;border-radius:1px;background:#d8d8dd}
+  .cell.focused{background:var(--blue-8);box-shadow:inset 0 0 0 2px var(--blue);transform:translateY(-1px)}
+  .cell.focused.empty::after{background:var(--blue);animation:blink 1.1s steps(2,end) infinite}
+  @keyframes blink{50%{opacity:.15}}
+  .cell.ghost{opacity:.32}
+
+  .meta-row{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .badge{
+    font-size:12px;padding:4px 9px;border-radius:20px;background:var(--card);color:var(--muted);
+    display:inline-flex;align-items:center;gap:5px;
+  }
+  .badge.ok{background:rgba(29,158,117,.1);color:#0f6e56}
+  .badge.warn{background:rgba(226,75,74,.1);color:#a32d2d}
+  .badge.live::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--blue)}
+  .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+  .modes{display:flex;gap:0;background:var(--card);border-radius:10px;padding:3px;margin-top:14px}
+  .modes button{
+    flex:1;border:0;background:transparent;padding:8px 4px;border-radius:8px;
+    font-size:13px;color:var(--muted);cursor:pointer;font-family:inherit;
+    transition:background .18s var(--ease),color .18s var(--ease),box-shadow .18s var(--ease);
+  }
+  .modes button.on{background:#fff;color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.1);font-weight:500}
+
+  .hint{
+    display:flex;gap:8px;align-items:flex-start;margin-top:14px;padding:11px 13px;
+    background:var(--blue-8);border-radius:var(--r-md);font-size:12.5px;line-height:1.55;color:#0b4f9c;
+    transition:opacity .4s var(--ease),height .4s var(--ease),margin .4s var(--ease),padding .4s var(--ease);
+  }
+  .hint .hi{font-weight:500}
+  .hint.hide{opacity:0;height:0;margin:0;padding:0 13px;overflow:hidden}
+  .hint.err{background:rgba(226,75,74,.09);color:#a32d2d}
+
+  .examples{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .examples button{
+    border:0;background:var(--card);color:var(--muted);font-size:12px;
+    padding:7px 11px;border-radius:8px;cursor:pointer;font-family:inherit;
+  }
+  .examples button:hover{background:#ececf0;color:var(--text)}
+
+  .result{
+    margin-top:16px;padding:16px;border-radius:var(--r-lg);
+    background:linear-gradient(180deg,#f7fbff,#f2f8ff);box-shadow:inset 0 0 0 1px rgba(0,113,227,.16);
+  }
+  .result .r-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  .result .r-num{font-size:26px;font-weight:500;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+  .result .r-sub{font-size:12px;color:var(--muted);margin-top:6px}
+  .result .r-actions{display:flex;gap:8px;margin-top:12px}
+  .result .r-actions button{
+    flex:1;border:0;border-radius:9px;padding:9px;font-size:13px;font-family:inherit;cursor:pointer;
+    background:#fff;color:var(--blue);box-shadow:inset 0 0 0 1px rgba(0,113,227,.25);
+  }
+  .result .r-actions button.primary{background:var(--blue);color:#fff;box-shadow:none}
+
+  .rules{margin-top:18px;font-size:12.5px;line-height:1.7;color:var(--muted)}
+  .rules summary{cursor:pointer;color:var(--faint);font-size:12px;outline:none}
+  .rules table{width:100%;border-collapse:collapse;margin-top:8px}
+  .rules td{padding:6px 0;border-bottom:1px solid var(--line);vertical-align:top}
+  .rules td:first-child{width:96px;color:var(--text)}
+
+  footer{flex:0 0 auto;padding:10px 20px 16px;border-top:1px solid var(--line);background:#fff}
+  .cta{
+    width:100%;border:0;border-radius:12px;padding:13px;font-size:15px;font-weight:500;
+    font-family:inherit;cursor:pointer;background:var(--blue);color:#fff;
+    transition:opacity .2s var(--ease),background .2s var(--ease);
+  }
+  .cta:disabled{background:#e2e2e7;color:#a1a1a6;cursor:not-allowed}
+
+  .keyboard{
+    flex:0 0 auto;background:var(--card);padding:8px 8px 10px;
+    border-top:1px solid var(--line);user-select:none;
+  }
+  .kb-row{display:flex;gap:6px;margin-bottom:6px}
+  .kb-row:last-child{margin-bottom:0}
+  .kb-key{
+    flex:1 1 0;min-width:0;height:44px;border:0;border-radius:8px;background:#fff;
+    font-size:16px;font-weight:400;color:var(--text);font-family:inherit;cursor:pointer;
+    box-shadow:0 1px 0 rgba(0,0,0,.10);transition:background .1s,transform .1s;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .kb-key:active{background:#ececf1;transform:scale(.97)}
+  .kb-key.digit{height:42px;font-size:17px}
+  .kb-key.fn{background:#e4e4e9;box-shadow:none;font-size:13px;color:#3a3a3c}
+  .kb-key.fn.blue{color:var(--blue);font-weight:500}
+  .kb-key.fn.danger{background:rgba(226,75,74,.12);color:#a32d2d;font-weight:500}
+  .kb-status{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 4px 7px;font-size:11.5px;color:var(--muted);
+  }
+  .kb-key.hot{background:var(--blue);color:#fff;box-shadow:none}
+  .kb-key.wide{flex:1.7 1 0}
+
+  .scrim{
+    position:absolute;inset:0;background:rgba(0,0,0,.28);opacity:0;pointer-events:none;
+    transition:opacity .26s var(--ease);z-index:20;
+  }
+  .scrim.open{opacity:1;pointer-events:auto}
+
+  .sheet{
+    position:absolute;left:0;right:0;bottom:0;z-index:21;
+    background:#fff;border-radius:var(--r-xl) var(--r-xl) 0 0;
+    transform:translateY(102%);transition:transform .34s var(--ease);
+    max-height:78%;display:flex;flex-direction:column;
+    box-shadow:0 -8px 40px -12px rgba(0,0,0,.28);
+  }
+  .sheet.open{transform:translateY(0)}
+  .sheet-grab{width:38px;height:4px;border-radius:2px;background:#d6d6db;margin:8px auto 0}
+  .sheet-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 20px 8px;
+  }
+  .sheet-head h2{font-size:15px;font-weight:500;margin:0}
+  .sheet-head button{
+    border:0;background:transparent;color:var(--muted);font-size:14px;
+    font-family:inherit;cursor:pointer;padding:4px
+  }
+  .tabs{display:flex;gap:6px;padding:0 20px 10px}
+  .tabs button{
+    border:0;background:var(--card);color:var(--muted);font-size:13px;
+    padding:7px 14px;border-radius:20px;cursor:pointer;font-family:inherit;
+    transition:background .18s,color .18s;
+  }
+  .tabs button.on{background:var(--blue);color:#fff}
+  .sheet-body{overflow-y:auto;padding:2px 20px 30px}
+
+  .row{display:flex;align-items:flex-start;gap:8px;margin-bottom:10px}
+  .row-label{width:38px;flex:0 0 38px;padding-top:11px;font-size:12px;color:var(--faint)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{
+    min-width:44px;height:38px;padding:0 10px;border:0;border-radius:9px;background:var(--card);
+    font-size:16px;font-family:inherit;color:var(--text);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:background .14s,box-shadow .14s,transform .14s;
+  }
+  .chip:active{transform:scale(.96)}
+  .chip.cur{box-shadow:inset 0 0 0 1.5px var(--blue);color:var(--blue);font-weight:500}
+  .chip.on{background:var(--blue);color:#fff;box-shadow:none}
+  .chip .tag{font-size:10px;color:var(--faint);margin-left:4px}
+  .chip.on .tag{color:rgba(255,255,255,.8)}
+
+  .tip-line{font-size:12px;color:var(--faint);margin:2px 0 14px;line-height:1.6}
+
+  .geo{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,auto);gap:8px;margin-bottom:14px}
+  .geo-cell{
+    border:0;background:var(--card);border-radius:12px;padding:14px 6px;cursor:pointer;
+    font-family:inherit;font-size:13px;color:var(--text);min-height:64px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    transition:background .16s,box-shadow .16s;
+  }
+  .geo-cell small{font-size:11px;color:var(--faint)}
+  .geo-cell.on{background:var(--blue-8);box-shadow:inset 0 0 0 1.5px var(--blue);color:var(--blue)}
+  .geo-cell.on small{color:var(--blue)}
+  .g-nw{grid-area:1/1}.g-n{grid-area:1/2}.g-ne{grid-area:1/3}
+  .g-sw{grid-area:2/1}.g-c{grid-area:2/2}.g-e{grid-area:2/3}
+  .g-s{grid-area:3/2/4/4}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="phone" id="phone">
+  <header>
+    <h1>添加车辆</h1>
+    <button class="help-btn" id="helpBtn">填写规则</button>
+  </header>
+
+  <main id="main">
+    <div class="plate-label"><span>车牌号码</span><b id="locLabel">定位带入</b></div>
+    <div class="plate" id="plate" role="group" aria-label="车牌号输入"></div>
+
+    <div class="meta-row">
+      <span class="badge live" id="typeBadge">自动识别</span>
+      <span class="badge" id="stateBadge">待输入</span>
+    </div>
+
+    <div class="modes" id="modes">
+      <button data-mode="auto" class="on">自动识别</button>
+      <button data-mode="fuel">燃油 7 位</button>
+      <button data-mode="nev">新能源 8 位</button>
+    </div>
+
+    <div class="hint" id="hint"></div>
+
+    <div class="examples">
+      <button data-fill="沪AD12345">试填 沪AD12345</button>
+      <button data-fill="京A12345">试填 京A12345</button>
+      <button data-paste="1">粘贴解析</button>
+    </div>
+
+    <div id="resultWrap"></div>
+
+    <details class="rules" id="rules">
+      <summary>填写规则</summary>
+      <table>
+        <tr><td>燃油车</td><td>7 位：省简称 + 发牌机关字母 + 5 位数字或字母</td></tr>
+        <tr><td>小型新能源</td><td>8 位：省简称 + 字母 + 第 3 位 D/F + 5 位数字或字母（如 沪AD12345）</td></tr>
+        <tr><td>大型新能源</td><td>8 位：省简称 + 字母 + 5 位数字 + 末位 D/F（如 沪A12345D）</td></tr>
+        <tr><td>字母范围</td><td>A–Z，不含 I 和 O（易与 1、0 混淆）</td></tr>
+        <tr><td>港澳入境车</td><td>7 位：粤 + Z + 4 位号码 + 末位「港」或「澳」，如 粤Z1234港</td></tr>
+        <tr><td>省简称</td><td>共 31 个；港、澳出现在号牌末位而非省份位，台湾车辆挂内地普通号牌</td></tr>
+      </table>
+    </details>
+  </main>
+
+  <footer>
+    <button class="cta" id="submit" disabled>确认添加</button>
+  </footer>
+
+  <div class="keyboard" id="keyboard"></div>
+
+  <div class="scrim" id="scrim"></div>
+  <div class="sheet" id="sheet" aria-hidden="true">
+    <div class="sheet-grab"></div>
+    <div class="sheet-head">
+      <h2>选择省份简称</h2>
+      <button id="sheetClose">完成</button>
+    </div>
+    <div class="tabs" id="tabs">
+      <button data-tab="recent" class="on">常用</button>
+      <button data-tab="group">分区</button>
+      <button data-tab="geo">方位</button>
+    </div>
+    <div class="sheet-body" id="sheetBody"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var PROVINCES = ['京','津','冀','晋','蒙','辽','吉','黑','沪','苏','浙','皖','闽','赣','鲁','豫','鄂','湘','粤','桂','琼','渝','川','贵','云','藏','陕','甘','青','宁','新'];
+  var GROUPS = [
+    ['华北', ['京','津','冀','晋','蒙']],
+    ['东北', ['辽','吉','黑']],
+    ['华东', ['沪','苏','浙','皖','闽','赣','鲁']],
+    ['华中', ['豫','鄂','湘']],
+    ['华南', ['粤','桂','琼']],
+    ['西南', ['渝','川','贵','云','藏']],
+    ['西北', ['陕','甘','青','宁','新']]
+  ];
+  var GEO = [
+    {cls:'g-nw', name:'西北', provinces:['陕','甘','青','宁','新']},
+    {cls:'g-n',  name:'华北', provinces:['京','津','冀','晋','蒙']},
+    {cls:'g-ne', name:'东北', provinces:['辽','吉','黑']},
+    {cls:'g-sw', name:'西南', provinces:['渝','川','贵','云','藏']},
+    {cls:'g-c',  name:'华中', provinces:['豫','鄂','湘']},
+    {cls:'g-e',  name:'华东', provinces:['沪','苏','浙','皖','闽','赣','鲁']},
+    {cls:'g-s',  name:'华南', provinces:['粤','桂','琼']}
+  ];
+  var LETTERS = ['A','B','C','D','E','F','G','H','J','K','L','M','N','P','Q','R','S','T','U','V','W','X','Y','Z'];
+
+  var state = {
+    province: '',
+    body: [],
+    mode: 'auto',
+    focus: 1,
+    recent: [],
+    tab: 'recent',
+    geoPick: null,
+    clearArmed: false,
+    submitted: false
+  };
+
+  var $ = function(id){ return document.getElementById(id); };
+  var plateEl = $('plate'), kbEl = $('keyboard'), sheetEl = $('sheet'),
+      scrimEl = $('scrim'), bodyEl = $('sheetBody'), hintEl = $('hint'),
+      submitEl = $('submit'), resultWrap = $('resultWrap'),
+      typeBadge = $('typeBadge'), stateBadge = $('stateBadge'), locLabel = $('locLabel');
+
+  function store(key, val){
+    try{
+      if(val === undefined) return localStorage.getItem(key);
+      localStorage.setItem(key, val);
+    }catch(e){ return null; }
+  }
+
+  function isCrossBorder(){
+    return state.province === '粤' && state.body[0] === 'Z' && state.mode !== 'nev';
+  }
+
+  function maxLen(){
+    if(isCrossBorder()) return 7;
+    return state.mode === 'fuel' ? 7 : 8;
+  }
+
+  function resolve(){
+    if(isCrossBorder()) return { type: 'cross', need: 7 };
+    var type = state.mode === 'fuel' ? 'fuel'
+             : state.mode === 'nev' ? 'nev'
+             : (state.body.length >= 7 ? 'nev' : 'fuel');
+    return { type: type, need: type === 'nev' ? 8 : 7 };
+  }
+
+  function tap(){
+    if(navigator.vibrate){ try{ navigator.vibrate(8); }catch(e){} }
+  }
+
+  function isLetter(ch){ return /^[A-HJ-NP-Z]$/.test(ch); }
+  function isAlnum(ch){ return /^[A-HJ-NP-Z0-9]$/.test(ch); }
+
+  function validate(){
+    var r = resolve(), need = r.need;
+    var rest = Math.max(0, need - 1 - state.body.length);
+
+    if(!state.province) return {ok:false, code:'noProvince', msg:'先点最左边一格选择省份简称'};
+    if(state.body.length === 0) return {ok:false, code:'empty', msg:'省份已带入 ' + state.province + '，接着输入发牌机关字母'};
+    if(!isLetter(state.body[0])) return {ok:false, code:'second', msg:'第 2 位是发牌机关字母（A–Z，不含 I、O）'};
+    if(state.body.length < need - 1) return {ok:false, code:'short', msg:'还差 ' + rest + ' 位'};
+    if(state.body.length > need - 1) return {ok:false, code:'long', msg:'已超出 ' + need + ' 位，请删除多余字符'};
+
+    var s = state.province + state.body.join('');
+
+    if(r.type === 'cross'){
+      if(!/^[A-HJ-NP-Z0-9]{4}$/.test(state.body.slice(1,5).join(''))){
+        return {ok:false, code:'body', msg:'第 3–6 位为数字或字母（不含 I、O）'};
+      }
+      if('港澳'.indexOf(state.body[5]) < 0){
+        return {ok:false, code:'suffix', msg:'粤Z 车牌末位必须是「港」或「澳」'};
+      }
+      return {ok:true, type:'cross', full:s, msg:'港澳入境车牌 · 校验通过'};
+    }
+
+    if(r.type === 'nev'){
+      var small = 'DF'.indexOf(state.body[1]) >= 0;
+      var large = 'DF'.indexOf(state.body[6]) >= 0;
+      if(!small && !large) return {ok:false, code:'df', msg:'新能源车第 3 位或末位必须是 D 或 F'};
+      if(small && !/^[A-HJ-NP-Z0-9]{5}$/.test(state.body.slice(2).join(''))){
+        return {ok:false, code:'body', msg:'第 4–8 位为数字或字母（不含 I、O）'};
+      }
+      if(!small && !/^[0-9]{5}$/.test(state.body.slice(1,6).join(''))){
+        return {ok:false, code:'body', msg:'大型新能源第 3–7 位必须是数字'};
+      }
+      return {ok:true, type:'nev', full:s, msg:'新能源车牌 · 校验通过'};
+    }
+
+    if(!/^[A-HJ-NP-Z0-9]{5}$/.test(state.body.slice(1).join(''))){
+      return {ok:false, code:'body', msg:'第 3–7 位为数字或字母（不含 I、O）'};
+    }
+    if(state.mode === 'auto' && 'DF'.indexOf(state.body[1]) >= 0){
+      return {ok:true, type:'fuel', full:s, msg:'燃油车牌 · 校验通过（若为新能源，请切到 8 位）'};
+    }
+    return {ok:true, type:'fuel', full:s, msg:'燃油车牌 · 校验通过'};
+  }
+
+  function renderPlate(){
+    var cells = [];
+    var total = maxLen();
+    var need = resolve().need;
+    for(var i = 0; i < total; i++){
+      var focused = (state.focus === i);
+      if(i === 0){
+        var has = !!state.province;
+        cells.push('<div class="cell prov' + (has ? '' : ' empty') + (focused ? ' focused' : '') +
+          '" data-idx="0" role="button" tabindex="0" aria-label="省份简称">' + (has ? state.province : '') + '</div>');
+      }else{
+        var ch = state.body[i-1] || '';
+        cells.push('<div class="cell' + (ch ? '' : ' empty') + (focused ? ' focused' : '') +
+          (i >= need ? ' ghost' : '') + '" data-idx="' + i + '" role="button" tabindex="0">' + ch + '</div>');
+      }
+    }
+    plateEl.innerHTML = cells.join('');
+  }
+
+  function renderStatus(){
+    var v = validate();
+    var r = resolve();
+    var rest = Math.max(0, r.need - 1 - state.body.length);
+
+    typeBadge.textContent = r.type === 'cross'
+      ? '港澳入境 · 粤Z'
+      : state.mode === 'auto'
+        ? (r.type === 'nev' ? '自动识别 · 新能源' : '自动识别 · 燃油')
+        : (state.mode === 'fuel' ? '燃油 7 位' : '新能源 8 位');
+    typeBadge.className = 'badge' + (state.mode === 'auto' ? ' live' : '');
+
+    if(!state.province){
+      stateBadge.textContent = '待选省份';
+      stateBadge.className = 'badge';
+    }else if(v.ok){
+      stateBadge.textContent = '校验通过';
+      stateBadge.className = 'badge ok';
+    }else if(rest > 0){
+      stateBadge.textContent = '还差 ' + rest + ' 位';
+      stateBadge.className = 'badge';
+    }else{
+      stateBadge.textContent = '格式不符';
+      stateBadge.className = 'badge warn';
+    }
+
+    if(!v.ok){
+      hintEl.className = 'hint' + (v.code === 'df' || v.code === 'body' || v.code === 'second' ? ' err' : '');
+      hintEl.innerHTML = '<span class="dot" style="margin-top:5px;flex:0 0 auto"></span><span>' + v.msg + '</span>';
+    }else{
+      hintEl.className = 'hint';
+      hintEl.innerHTML = '<span class="dot" style="margin-top:5px;flex:0 0 auto;background:#1d9e75"></span><span><span class="hi">' + v.full + '</span> ' + v.msg + '</span>';
+    }
+
+    submitEl.disabled = !v.ok;
+    submitEl.textContent = v.ok ? '确认添加' : '确认添加（还差 ' + rest + ' 位）';
+  }
+
+  function kbHint(){
+    if(isCrossBorder() && state.body.length === 5) return '第 7 位 · 选择 港 或 澳';
+    if(state.focus === 0) return '正在选择省份简称';
+    var pos = state.body.length + 1;
+    if(pos === 1) return '第 2 位 · 发牌机关字母';
+    if(state.mode === 'nev' && state.body.length === 2) return '第 3 位 · 新能源固定 D 或 F';
+    if(state.mode === 'nev' && state.body.length === 6) return '第 8 位 · 新能源末位 D 或 F';
+    return '第 ' + (pos + 1) + ' 位 · 数字或字母';
+  }
+
+  function renderKeyboard(){
+    if(isCrossBorder() && state.body.length === 5){
+      kbEl.innerHTML = '<div class="kb-status"><span>' + kbHint() + '</span><span>末位汉字</span></div>' +
+        '<div class="kb-row">' +
+        '<button class="kb-key hot" data-suffix="港" style="flex:1.6;height:56px;font-size:17px">港</button>' +
+        '<button class="kb-key hot" data-suffix="澳" style="flex:1.6;height:56px;font-size:17px">澳</button>' +
+        '</div><div class="kb-row">' +
+        '<button class="kb-key fn wide" data-act="clear">清空</button>' +
+        '<button class="kb-key fn" data-act="back">删除</button></div>';
+      return;
+    }
+    var hotDF = (state.mode === 'nev') && (state.body.length === 2 || state.body.length === 6);
+    var rows = [];
+    var digits = ['1','2','3','4','5','6','7','8','9','0'];
+    rows.push('<div class="kb-row">' + digits.map(function(d){
+      return '<button class="kb-key digit" data-key="' + d + '">' + d + '</button>';
+    }).join('') + '</div>');
+
+    var chunks = [LETTERS.slice(0,6), LETTERS.slice(6,12), LETTERS.slice(12,18), LETTERS.slice(18)];
+    chunks.forEach(function(chunk){
+      var html = chunk.map(function(c){
+        var hot = (hotDF && (c === 'D' || c === 'F'));
+        return '<button class="kb-key' + (hot ? ' hot' : '') + '" data-key="' + c + '">' + c + '</button>';
+      }).join('');
+      rows.push('<div class="kb-row">' + html + '</div>');
+    });
+
+    rows.push('<div class="kb-row">' +
+      '<button class="' + (state.clearArmed ? 'kb-key fn danger' : 'kb-key fn') + '" data-act="clear" style="flex:1.1 1 0">' +
+        (state.clearArmed ? '再点清空' : '清空') + '</button>' +
+      '<button class="kb-key fn blue" data-act="prov" style="flex:1.15 1 0">省份</button>' +
+      '<button class="kb-key fn" data-act="back" style="flex:1.9 1 0">删除</button>' +
+      '</div>');
+
+    kbEl.innerHTML = '<div class="kb-status"><span>' + kbHint() + '</span><span>长按删除可连删</span></div>' + rows.join('');
+  }
+
+  function chipsHTML(list, opts){
+    opts = opts || {};
+    return list.map(function(p){
+      var cls = 'chip';
+      if(opts.cur && state.province === p) cls += ' cur';
+      return '<button class="' + cls + '" data-prov="' + p + '">' + p + '</button>';
+    }).join('');
+  }
+
+  function renderSheet(){
+    // tabs
+    Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function(b){
+      b.className = b.getAttribute('data-tab') === state.tab ? 'on' : '';
+    });
+
+    if(state.tab === 'recent'){
+      var list = state.recent.slice(0, 4);
+      if(state.province && list.indexOf(state.province) < 0) list.unshift(state.province);
+      var html = '<p class="tip-line">常用会随使用自动更新，第一个通常是你的常驻省份。</p>';
+      if(!list.length){
+        html += '<p class="tip-line">还没有记录，从「分区」或「方位」里选一次即可。</p>';
+      }else{
+        html += '<div class="row"><div class="row-label">常用</div><div class="chips">' +
+          list.map(function(p){
+            var cur = state.province === p;
+            return '<button class="chip' + (cur ? ' on' : '') + '" data-prov="' + p + '">' + p +
+              (cur ? '<span class="tag">当前</span>' : '') + '</button>';
+          }).join('') + '</div></div>';
+      }
+      html += '<div class="row" style="margin-top:16px"><div class="row-label">全部</div><div class="chips">' +
+        chipsHTML(PROVINCES) + '</div></div>';
+      bodyEl.innerHTML = html;
+      return;
+    }
+
+    if(state.tab === 'group'){
+      var g = '<p class="tip-line">按七大区分组，组内位置固定，选过两次就有肌肉记忆。</p>';
+      GROUPS.forEach(function(pair){
+        g += '<div class="row"><div class="row-label">' + pair[0] + '</div><div class="chips">' +
+          chipsHTML(pair[1]) + '</div></div>';
+      });
+      bodyEl.innerHTML = g;
+      return;
+    }
+
+    var geo = '<p class="tip-line">按方位摆放，先点区域再点省份。正式版接持牌底图可升级为真实轮廓。</p>';
+    geo += '<div class="geo">' + GEO.map(function(r){
+      var on = state.geoPick === r.name;
+      return '<button class="geo-cell ' + r.cls + (on ? ' on' : '') + '" data-geo="' + r.name + '">' +
+        r.name + '<small>' + r.provinces.length + ' 个</small></button>';
+    }).join('') + '</div>';
+    var picked = null;
+    GEO.forEach(function(r){ if(r.name === state.geoPick) picked = r; });
+    if(picked){
+      geo += '<div class="row"><div class="row-label">' + picked.name + '</div><div class="chips">' +
+        chipsHTML(picked.provinces) + '</div></div>';
+    }else{
+      geo += '<p class="tip-line">已选区域后在这里展开省份。</p>';
+    }
+    bodyEl.innerHTML = geo;
+  }
+
+  function render(){
+    renderPlate();
+    renderStatus();
+    renderKeyboard();
+    if(sheetEl.classList.contains('open')) renderSheet();
+  }
+
+  function openSheet(){
+    state.focus = 0;
+    scrimEl.classList.add('open');
+    sheetEl.classList.add('open');
+    sheetEl.setAttribute('aria-hidden','false');
+    render();
+    renderSheet();
+  }
+
+  function closeSheet(){
+    scrimEl.classList.remove('open');
+    sheetEl.classList.remove('open');
+    sheetEl.setAttribute('aria-hidden','true');
+    state.focus = Math.min(1 + state.body.length, maxLen() - 1);
+    render();
+  }
+
+  function pickProvince(p){
+    state.province = p;
+    state.recent = [p].concat(state.recent.filter(function(x){ return x !== p; })).slice(0, 4);
+    store('plate.recent', JSON.stringify(state.recent));
+    state.submitted = false;
+    resultWrap.innerHTML = '';
+    closeSheet();
+  }
+
+  function pushChar(ch){
+    if(state.focus === 0){ openSheet(); return; }
+    if(state.body.length >= maxLen() - 1) return;
+    if(!isAlnum(ch)) return;
+    tap();
+    state.body.push(ch);
+    state.focus = 1 + state.body.length;
+    state.submitted = false;
+    resultWrap.innerHTML = '';
+    render();
+  }
+
+  function pushSuffix(ch){
+    if(state.body.length !== 5 || '港澳'.indexOf(ch) < 0) return;
+    tap();
+    state.body.push(ch);
+    state.focus = 6;
+    state.submitted = false;
+    resultWrap.innerHTML = '';
+    render();
+  }
+
+  function backspace(){
+    if(state.body.length === 0){ openSheet(); return; }
+    state.body.pop();
+    state.focus = 1 + state.body.length;
+    state.submitted = false;
+    resultWrap.innerHTML = '';
+    render();
+  }
+
+  function clearAll(){
+    if(!state.clearArmed){
+      state.clearArmed = true;
+      renderKeyboard();
+      setTimeout(function(){
+        if(state.clearArmed){ state.clearArmed = false; renderKeyboard(); }
+      }, 2200);
+      return;
+    }
+    state.clearArmed = false;
+    state.body = [];
+    state.focus = 1;
+    state.submitted = false;
+    resultWrap.innerHTML = '';
+    render();
+  }
+
+  function fillFrom(raw){
+    var s = String(raw).replace(/[\s·.\-—]/g,'').toUpperCase();
+    var chars = Array.from(s);
+    if(!chars.length) return;
+    if(PROVINCES.indexOf(chars[0]) < 0) return;
+    state.province = chars[0];
+    state.body = chars.slice(1).filter(function(c){ return isLetter(c) || /[0-9]/.test(c); }).slice(0, 7);
+    state.focus = Math.min(1 + state.body.length, maxLen() - 1);
+    state.submitted = false;
+    resultWrap.innerHTML = '';
+    render();
+  }
+
+  function submit(){
+    var v = validate();
+    if(!v.ok) return;
+    state.submitted = true;
+    var typeName = v.type === 'nev' ? '新能源' : (v.type === 'cross' ? '港澳入境' : '燃油');
+    var len = v.full.length;
+    resultWrap.innerHTML =
+      '<div class="result">' +
+        '<div class="r-top"><div class="r-num">' + v.full + '</div>' +
+        '<span class="badge ok">' + typeName + '</span></div>' +
+        '<div class="r-sub">' + len + ' 位 · 校验通过 · 已加入我的车辆</div>' +
+        '<div class="r-actions">' +
+          '<button id="copyBtn">复制车牌号</button>' +
+          '<button class="primary" id="resetBtn">再添加一辆</button>' +
+        '</div>' +
+      '</div>';
+    $('copyBtn').onclick = function(){
+      var txt = v.full;
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(txt).then(function(){ toast('已复制 ' + txt); }, function(){ toast(txt); });
+      }else{
+        toast(txt);
+      }
+    };
+    $('resetBtn').onclick = function(){
+      state.body = [];
+      state.focus = 1;
+      state.submitted = false;
+      resultWrap.innerHTML = '';
+      render();
+      window.scrollTo(0,0);
+      $('main').scrollTop = 0;
+    };
+    $('main').scrollTop = $('main').scrollHeight;
+    submitEl.disabled = true;
+    submitEl.textContent = '已加入我的车辆';
+  }
+
+  function toast(msg){
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:absolute;left:50%;bottom:120px;transform:translateX(-50%);' +
+      'background:rgba(29,29,31,.9);color:#fff;font-size:13px;padding:9px 16px;border-radius:20px;z-index:40;' +
+      'opacity:0;transition:opacity .25s';
+    document.getElementById('phone').appendChild(t);
+    requestAnimationFrame(function(){ t.style.opacity = '1'; });
+    setTimeout(function(){ t.style.opacity = '0'; setTimeout(function(){ t.remove(); }, 300); }, 1600);
+  }
+
+  plateEl.addEventListener('click', function(e){
+    var cell = e.target.closest('.cell');
+    if(!cell) return;
+    var idx = Number(cell.getAttribute('data-idx'));
+    if(idx === 0){ openSheet(); return; }
+    var limit = Math.min(idx, 1 + state.body.length);
+    state.focus = Math.max(1, limit);
+    render();
+  });
+
+  kbEl.addEventListener('click', function(e){
+    var k = e.target.closest('button');
+    if(!k) return;
+    if(k.getAttribute('data-suffix')){ pushSuffix(k.getAttribute('data-suffix')); return; }
+    if(k.getAttribute('data-act') === 'back'){ backspace(); return; }
+    if(k.getAttribute('data-act') === 'clear'){ clearAll(); return; }
+    if(k.getAttribute('data-act') === 'prov'){ openSheet(); return; }
+    var key = k.getAttribute('data-key');
+    if(key) pushChar(key);
+  });
+
+  bodyEl.addEventListener('click', function(e){
+    var chip = e.target.closest('[data-prov]');
+    if(chip){ pickProvince(chip.getAttribute('data-prov')); return; }
+    var geo = e.target.closest('[data-geo]');
+    if(geo){
+      var name = geo.getAttribute('data-geo');
+      state.geoPick = (state.geoPick === name) ? null : name;
+      renderSheet();
+    }
+  });
+
+  $('tabs').addEventListener('click', function(e){
+    var b = e.target.closest('button');
+    if(!b) return;
+    state.tab = b.getAttribute('data-tab');
+    renderSheet();
+  });
+
+  scrimEl.addEventListener('click', closeSheet);
+  $('sheetClose').addEventListener('click', closeSheet);
+
+  $('modes').addEventListener('click', function(e){
+    var b = e.target.closest('button');
+    if(!b) return;
+    state.mode = b.getAttribute('data-mode');
+    Array.prototype.forEach.call(document.querySelectorAll('#modes button'), function(x){
+      x.className = x === b ? 'on' : '';
+    });
+    var cap = maxLen() - 1;
+    if(state.body.length > cap) state.body = state.body.slice(0, cap);
+    state.focus = Math.min(1 + state.body.length, maxLen() - 1);
+    resultWrap.innerHTML = '';
+    render();
+  });
+
+  var lpTimer = null, lpRepeat = null, lpFired = false;
+  function stopPress(){
+    clearTimeout(lpTimer); clearInterval(lpRepeat);
+    lpTimer = null; lpRepeat = null;
+  }
+  kbEl.addEventListener('pointerdown', function(e){
+    var k = e.target.closest('button');
+    if(!k || k.getAttribute('data-act') !== 'back') return;
+    lpFired = false;
+    lpTimer = setTimeout(function(){
+      lpFired = true;
+      lpRepeat = setInterval(function(){ tap(); backspace(); }, 90);
+    }, 420);
+  });
+  kbEl.addEventListener('pointerup', stopPress);
+  kbEl.addEventListener('pointercancel', stopPress);
+  kbEl.addEventListener('pointerleave', stopPress);
+  kbEl.addEventListener('click', function(e){
+    if(!lpFired) return;
+    var k = e.target.closest('button');
+    if(k && k.getAttribute('data-act') === 'back'){ e.stopPropagation(); lpFired = false; }
+  }, true);
+
+  submitEl.addEventListener('click', submit);
+
+  document.querySelector('.examples').addEventListener('click', function(e){
+    var b = e.target.closest('button');
+    if(!b) return;
+    if(b.getAttribute('data-paste')){
+      var txt = '';
+      if(navigator.clipboard && navigator.clipboard.readText){
+        navigator.clipboard.readText().then(function(t){
+          if(t && PROVINCES.indexOf(Array.from(t)[0]) >= 0){ fillFrom(t); }
+          else { toast('剪贴板里没有识别到车牌'); }
+        }, function(){ toast('浏览器不允许读取剪贴板'); });
+      }else{
+        toast('当前环境不支持读取剪贴板');
+      }
+      return;
+    }
+    fillFrom(b.getAttribute('data-fill'));
+  });
+
+  $('helpBtn').addEventListener('click', function(){
+    var d = $('rules');
+    d.open = true;
+    d.scrollIntoView({behavior:'smooth', block:'center'});
+  });
+
+  document.addEventListener('keydown', function(e){
+    if(/^[a-zA-Z]$/.test(e.key)){
+      var up = e.key.toUpperCase();
+      if(up === 'I' || up === 'O'){ return; }
+      pushChar(up); e.preventDefault(); return;
+    }
+    if(/^[0-9]$/.test(e.key)){ pushChar(e.key); e.preventDefault(); return; }
+    if(e.key === 'Backspace'){ backspace(); e.preventDefault(); return; }
+    if(e.key === 'Escape'){ closeSheet(); return; }
+  });
+
+  function boot(){
+    var savedRecent = store('plate.recent');
+    if(savedRecent){
+      try{ state.recent = JSON.parse(savedRecent) || []; }catch(e){ state.recent = []; }
+    }
+    state.province = state.recent[0] || '沪';
+    locLabel.textContent = state.recent[0] ? '沿用上次' : '定位带入';
+    state.focus = 1;
+    render();
+    hintEl.className = 'hint';
+    hintEl.innerHTML = '<span class="dot" style="margin-top:5px;flex:0 0 auto"></span><span>' +
+      '已填好 <span class="hi">' + state.province + '</span>，直接输入字母和数字就行；要换省份点最左边一格。</span>';
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>
